@@ -1,0 +1,47 @@
+primd server needs:
+  a discovery scheme, primdchain has the beginning outline of one scheme
+  to give its ip in the successful return packet
+  an /etc/primd.d directory containing:
+    conf, access, friends, log
+
+Testing and Docs:
+Automated Testing Help!
+Keep up Documentation
+
+Build the distribution, post to CPAN, and announce
+
+Long Term:
+Apply for module name space Prim::
+Convert everything to use Prim:: namespace
+Add call backs to get docs from each exposed method or devise a POD scheme.
+Create an xml for diverting the user to a different server.
+Ask about this:  Make sure taint checking is genuine.
+
+Done:
+  Put more thought into the XML so that all packets are wrapped the same way.
+  Implement an inetd service which reads the /tmp entries upon client request.
+  Add xml tags to allow for interchange of object reference keys.
+  Give an example of a factory server.
+  Create xml for requesting documentation, implement it.
+  Expand the api for the constructor ...
+    documentation is available without much trouble
+  Correct documentation portions of client, server, objectclient, and
+    objectserver to reflect documentation retrieval
+  Change all push @responses ... join "", @responses to $response .= $_
+  Prim discoveries read the tmp dir, then ignored result
+  PrimClient and PrimObjectClient now use _send_and_receive_packet for all calls
+  Document PrimObjectServer.pm, PrimObject.pm, and PrimObjectClient.pm
+  Make a DTD for valid prim requests and responses.
+  Have primd check /etc/primd.access for allowed or denied entries.
+  Explain how to set up and use primd including /etc/primd.access
+  The ACL ideas below became:
+    Take a ACL file name in the constructor, make it like sample_server.acl
+    Rejected (for now):
+    ACLs:
+    Have PrimServer store an ACL file in the /tmp/name.prim file.
+    Apply ACL
+    Expand the api for the constructor ...
+      so that methods can control their visibility write these in ACL
+  Change ACL check in send_documentation to check the function access
+  Put new ACL check in primd, Prim.pm, and PrimObjectServer.pm
+  Put signal handler in Prim.*Server.pm so it removes /tmp/name.prim

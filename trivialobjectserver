@@ -1,0 +1,16 @@
+#!/usr/bin/perl -T
+use strict; use lib ".";
+use PrimObjectServer;
+use Multiplier;
+
+PrimObjectServer->new(
+  'multiplier.mycompany.com',
+  undef,
+  new_multiplier_object => { CODE => \&make_multiplier,
+                             DOC  => 'returns a new multiplier object',
+                           },
+);
+
+sub make_multiplier {
+  return Multiplier->new(@_);
+}

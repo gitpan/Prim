@@ -1,0 +1,56 @@
+# This file grants or denies access to prim service port numbers based on
+# the following rules:
+#
+# These rules are applied in the order they appear.  Once one of them
+# applies, others are ignored.
+# If you say ALL allow at the bottom of the file it will only apply to
+# services not mentioned above.
+# If two rules are included for the same service, only the first one applies.
+#
+# If you want everyone to have access to all available services (you are
+# crazy, or your network is safeguarded in other ways, or you don't have
+# a network), include:
+# ALL allow
+#
+# If you want to allow access to a service for all hosts say:
+# servicename allow
+# host:ALL
+#
+# If you want to deny access to a service to all hosts say:
+# servicename deny
+# host:ALL
+# Note that in this case those on your box can still lookup services by
+# reading /tmp, so this only effectively excludes all foreign hosts.
+#
+# If you want to allow access to a service on a per host basis say:
+# servicename allow
+# host:host1
+# host:host2
+# ...
+# If the service is marked in this way, only hosts in the list can lookup
+# the service, all others are denied.
+#
+# If you want to deny access to a service on a per host basis say:
+# servicename deny
+# host:host1
+# host:host2
+# ...
+# If the service is marked in this way, any hosts can lookup
+# the service, unless it is in the list.
+#
+# In the absence of an allow rule, the client will be denied.
+#
+# I'm hoping to implement some sort of signature scheme in the future.
+# That's why all host names must be prefaced with host:, so that later
+# entries can be signed:
+#
+# You may abbreviate host: as h:
+# Note that ALL is in all caps.
+#
+# ALL allow
+#
+
+statserver.somecompany.com allow
+host:somedomain.some.domain.com
+host:localhost.localdomain
+ 

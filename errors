@@ -1,0 +1,44 @@
+Currently only three components originate errors.  The primd lookup server,
+the PrimServer, and the PrimObjectServer.  Each error is delivered to the
+client in xml of the following form:
+<?xml version='1.0' ?><prim><error>text</error></prim>
+
+Here are the errors and what they mean.
+
+primd
+I don't know how to $command
+You made a request like <?xml version='1.0'?><prim><command ...></prim>
+but command is not one supported by primd.  Currently primd only supports
+lookup.
+
+Couldn't read /tmp directory
+Self evident.  Currently primd only looks in /tmp for services.
+
+Couldn't read /tmp/$name.prim
+The service you requested does not have a prim file in /tmp meaning that
+no such service is registered.  Given the current lack of a cleanup strategy
+service prim files usually stay in /tmp even when the service is dead, so
+this really means that the service has never run.  Probably a spelling error
+at present.
+
+$name not available
+There is a prim file in /tmp for the service you want, but the port could
+not be correctly retrieved from it.  This is an unlikely error.  The more
+likely error is reported by PrimClient or PrimObjectClient which is
+connection refused.  This occurs when the file is there, the port number
+is valid, but the server is no longer listening on that port (it died).
+
+
+PrimServer or PrimObjectServer
+Method 'name' not supported for client.
+You have requested a method directly through your Prim or PrimObject
+object which was not exposed in API hash of the server script.  The method
+may or may not even exist.  In the future this may also be delivered if your
+security credentials are insufficient to gain access to the function.
+In that case, the message might be 'Client credentials invalid'.
+
+PrimObjectServer
+Any message from which an object issued with die.
+These messages are passed directly from the remote object to you.
+They are not fatal, but you may not be able to meaningfully use the object
+after receiving one (depending on what went wrong).

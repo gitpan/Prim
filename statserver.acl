@@ -1,0 +1,80 @@
+# This file grants or denies access to a whole service, or individual
+# functions or methods that service could provide based on the following
+# rules (this scheme is similar to what primd uses, so this file similar
+# to primd.access):
+#
+# These rules are applied in the order they appear.  Once one of them
+# applies, others are ignored.
+# If you say ALL allow at the bottom of the file it will be ignored.
+# If two rules are included for the same method, only the first one applies.
+#
+# If you want everyone to have access to all available methods (you are
+# crazy, or your network is safeguarded in other ways, or you don't have
+# a network, or you trust primd), put one line in this file which reads:
+# ALL allow
+# host:ALL
+# The first line says allow access to all methods for the following hosts.
+# The second line says apply the above rule to all hosts.
+# You can reverse this:
+# ALL deny
+# host:ALL
+# But, this doesn't really make much sense, you could just stop the server.
+# It's provided since it appeals to my sense of symmetry.
+#
+# If you want to turn on access to all methods together say:
+# ALL allow
+# host:friendly.domain.com
+# host:friendly2.domain.com
+# ...
+# Only those hosts listed will be allowed access to methods in this server.
+# To turn off access to all methods together say:
+# ALL deny
+# host:evil.domain.com
+# host:evil2.domain.com
+# Anyone not in the list is allowed access.
+# 
+# If you want to allow access to one method for all hosts say:
+# method allow
+# host:ALL
+#
+# or if you want to turn off the method say:
+# method deny
+# host:ALL
+#
+# If you want to allow access on a per method and per host basis say:
+# method allow
+# host:friendly.domain.com
+# host:friendly2.domain.com
+# To reject hosts on a per method basis say:
+# method deny
+# host:evil.domain.com
+# host:evil2.domain.com
+#
+# Note that send_documentation is different.  To receive documentation the
+# host must have access to the method and to the send_documentation method.
+#
+# In the absence of a rule, the host will be denied.
+#
+# The reason that hosts are prefaced with host: is to allow for other prefixes
+# in the future.  Notably, I hope to soon add signed:name.
+#
+# You may abbreviate host: as h:
+# Note that ALL is in all caps.
+#
+# For initial ease of use, the following is uncommented.  This is not security.
+ALL allow
+host:ALL
+
+new_die deny
+host:somedomain.some.domain.com
+ 
+max allow
+host:somedomain.some.domain.com
+host:localhost.localdomain
+
+mode allow
+host:localhost.localdomain
+
+send_documentation deny
+host:somedomain.some.domain.com
+

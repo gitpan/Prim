@@ -1,0 +1,100 @@
+MARKETING HYPE
+
+Announcing Perl Remote Invocation of Methods (prim), an enterprise Perl
+paradigm.
+
+Why should the Java people have all the fun?
+
+Perl needs a scheme for implementing remote persistent objects like Java
+does with Enterprise Java Beans (EJB).  Prim is here.
+
+Prim lets you easily construct servers for Perl functions or Perl objects
+or both.  It even more easily lets you access those functions or objects
+once you get someone else to write them.
+
+Imagine the joy of telling your friends that you have written your
+own Perl bean server.  Challenge them to do the same in Java....
+Then stop calling it a Perl bean server.
+
+SYNOPSIS
+
+A server:
+  #!/usr/bin/perl -T
+  use strict; use lib ".";
+  use PrimServer;
+
+  PrimServer->new(
+    'add.mycompany.com',
+    undef,
+    add => { CODE => \&add_sub,
+             DOC  => 'takes a list of numbers, returns their sum'
+           },
+  );
+
+  sub add_sub {
+    my $result = 0;
+    foreach my $arg (@_) { $result += $arg; }
+    return $result;
+  }
+
+A client:
+
+  #!/usr/bin/perl -T
+  use strict; use lib ".";
+  use Prim;
+
+  my $adder = Prim->Prim_constructor('add.mycompany.com');
+  my @numbers = (2, 4, 7);
+
+  my $result = $adder->add(@numbers);
+
+  print "$result\n";
+
+DESCRIPTION
+
+The server starts, making the service available.  The client requests a
+connection, then calls methods through the returned object.  They run in the
+server.  For more info, grab the distribution and start looking in README.
+
+DOWNLOADING
+
+The system is working in a rudimentary way.  You can try it yourself.
+I'm developing on Red Hat 7.1, my one attempt with it on windows
+crashed and burned.  Tests on HP-UX 11.0 worked.
+
+The distribution is available on CPAN:
+
+  http://www.cpan.org/authors/id/P/PH/PHILCROW/Prim-0.01.tar.gz
+
+To unpack, simply gunzip and untar.  These are not ready for installation
+yet, so there is no make, make test, make install sequence.  I'm just
+throwing this out to see if anyone else is interested.
+
+Let me know what you think, especially if you have trouble.  Contact me at
+
+   philcrow2000@yahoo.com
+
+After you unpack the distribution, run trivialserver in one window and
+trivialclient in another.  After that, move up to server and client,
+finally treat yourself to objectserver and objectclient.  The trivial
+ones are documented in the README.  The others are documented in the
+scripts.
+
+FINE PRINT
+
+Prim is here, but it is far from the complete, robust, and useful suite
+I hope it will soon be.
+ 
+There is not much security.
+  
+The current implementation doesn't really cross from one host to another.
+   
+Discovery of servers is limited to local disk reads.
+    
+There are no timeouts yet.  If a client dies the server will likely have
+one child permanently blocked waiting on the dead client.  If the server dies,
+the client will block when it next tries to communicate with it.  I hope
+to correct this soon.
+
+[Insert usual save the world, help me build my toy, comment here.]
+

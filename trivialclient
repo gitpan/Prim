@@ -1,0 +1,12 @@
+#!/usr/bin/perl -T
+use strict;
+
+use lib ".";
+use Prim;
+
+my $adder = Prim->Prim_constructor('add.mycompany.com');
+my @numbers = (2, 4, 7);
+
+my $result = $adder->add(@numbers);
+
+print "$result\n";

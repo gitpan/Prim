@@ -1,0 +1,106 @@
+There is a DTD which describes the prim protocols, but it is not currently
+enforced, so there may be discrepancies between it and what is really
+allowed in the current implementation.  The DTD is in the file called
+prim.dtd in the distribution directory.
+
+Keep in mind that all messages delivered over sockets must end with a newline.  
+It is legal to include whitespace in any place that xml normally allows it,
+but you must end with a newline (to tell the Perl socket read that your
+record is complete).
+
+When you see the phrase: "Standard errors may result", you should expect
+to receive errors when things go wrong.  Such errors are always delivered
+in the following form:
+<?xml version='1.0' ?><prim><error>Informative message</error></prim>
+
+primd
+
+Asking the primd server where a service is located:
+<?xml version='1.0' ?><prim><lookup name='$name'/></prim>
+where $name is the service you are looking for like hello.company.com.
+
+Replies to the above:
+
+When you asked for something other than lookup:
+<?xml version='1.0' ?><prim><error>I don't know how to $command</error></prim>
+where command is the xml tag you used instead of lookup.
+
+When the server couldn't read the /tmp directory (unlikely):
+<?xml version='1.0' ?><prim><error>Couldn't read /tmp directory</error></prim>
+
+When the service you want has not advertised itself:
+<?xml version='1.0' ?><prim><error>Couldn't read /tmp/$name.prim</error></prim>
+where $name is the service you gave as the value of the name attribute.
+
+When the advertisement of the service was errant:
+<prim><error>$name not available</error></prim>
+
+When everything works:
+<?xml version="1.0" ?><prim><host>127.0.0.1</host><port>32415</port></prim>
+
+
+Method calls going to a PrimServer (these are really function calls):
+
+<?xml version='1.0' ?><prim><call_method name='$method'> <arg_list>
+<arg>arg1</arg><arg>arg2</arg>... </arg_list> </call_method></prim>
+
+Replies to the above:
+
+When the method you requested is not available to you:
+<?xml version='1.0' ?>
+<prim><error>'$method' not supported for client.</error></prim>
+where method is the one you requested in the name attribute of the method tag.
+
+When it works:
+<?xml version='1.0' ?><prim><return_from name='$method'>
+<return_value>retval1</return_value><return_value>retval2</return_value>...
+</return_from></prim>
+
+
+Method calls going to a PrimObjectServer (these are really method calls):
+
+Call to a factory method which will instantiate an object:
+<?xml version='1.0' ?><prim><call_method name='$method'/> <arg_list>
+<arg>arg0</arg><arg>arg1</arg>...</arg_list></call_method></prim>
+Note that this is exactly like a regular function call.
+
+Standard errors may result.
+
+When this works:
+<?xml version='1.0' ?><prim><return_from name='$method'>
+<return_object>object_key</return_object>...
+[can be mixed with regular return values like:]
+<return_value>value</return_value>...
+</return_from></prim>
+
+When you received an object_key in a prior prim call:
+<?xml version='1.0' ?><prim><call_method name='$method'> <arg_list>
+<arg>object_key or arg0</arg><arg>arg1</arg>...</arg_list></call_method></prim>
+This call goes directly to the object instance, the object_key must be the
+first argument.
+
+Standard errors may result.
+
+When you are done with an object server send the following:
+<?xml version='1.0' ?><prim><shutdown/></prim>
+
+
+Requests for documentation of exposed methods:
+To receive all available documentation:
+<?xml version='1.0' ?><prim><send_documentation/></prim>
+
+To receive documentation for some methods:
+<?xml version='1.0' ?><prim><send_documentation name='method'/></prim>
+<?xml version='1.0' ?><prim><send_documentation name='method,meth2'/></prim>
+
+Replies to the above:
+<?xml version='1.0' ?><prim><documentation><method>name</method>
+<description>Takes:...
+Returns...</description>
+<method>method12<description>Takes:...
+Returns...</description></documentation></prim>
+
+If there is no such documentation:
+Scream at the author through private email.
+Bad packets will have empty description fields, but will otherwise look like
+the above.

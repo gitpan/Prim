@@ -1,0 +1,334 @@
+#!/usr/bin/perl -T
+use strict;
+
+use IO::Socket;
+
+=head1 NAME
+
+primdchain - a Perl Remote Invocation of Methods inetd service finder
+
+=head1 SYNOPSIS
+
+This version of primd is a work in progress.  It has not been tested
+in any meaningful way.  The actual primd is working, but it only looks
+on one box.
+
+Send the following on standard in from the command line, or to port 5368
+if primd is properly registered (smallclient does the later):
+
+  <?xml version='1.0' ?><prim><lookup name='$name'/></prim>
+
+You will receive a prim packet in return.  It will be either:
+
+  <?xml version='1.0' ?><prim><error>Message</error></prim>
+
+Or:
+
+  <?xml version="1.0" ?><prim><host>127.0.0.1</host><port>32415</port></prim>
+  <?xml version="1.0" ?><prim><friends><friend>friend.domain.com</friend>...
+  </friends></prim>
+
+Currently primd always returns 127.0.0.1 for the host name.  The caller
+should know what host they contacted and use that host.  This should be
+fixed at some point.
+
+=head1 DESCRIPTION
+
+Bind primd to port 5368 with inetd (or its moral equivalent).  Currently,
+clients who supply your host name or ip will contact your primd asking for
+service ports.
+
+=head1 INSTALLATION
+
+To install primd, make an entry in /etc/services called prim with tcp port
+5368.  Do whatever else your inetd requires (make an entry in /etc/inetd.conf
+or a file in /etc/xinetd.d etc).  Copy the file sample_primd.access to
+/etc/primd.access
+Edit the access file to allow the hosts you like to have access.  If
+you're feeling brave, uncomment the line that reads # ALL allow
+If you don't have an /etc/primd.access no one will receive primd replies.
+
+=head1 LOG
+
+primd logs every access attempt, what happened to the client, and why in
+/tmp/primd.log
+
+=head1 AUTHOR
+
+Phil Crow, philcrow2000@yahoo.com
+
+=cut
+
+my $logging = 1;
+my $xmlheader = "<?xml version='1.0' ?><prim>";
+
+open  LOG, ">>/tmp/primdchain.log" or $logging = 0;
+my $fh = select LOG;
+$| = 1;
+select $fh;
+
+#  This is not sufficient to guarantee that the host is who he says he is.
+#  If he spoofs an ip that we resolve to a different host name than he
+#  can from we're breached.
+
+my $sockaddr = getpeername(STDIN);
+my ($port, $address) = sockaddr_in($sockaddr);
+my ($remote_hostname) = gethostbyaddr($address, AF_INET);
+
+print LOG "port is $port address is $remote_hostname\n";   # XXX
+
+$sockaddr = getsockname(STDIN);
+($port, $address) = sockaddr_in($sockaddr);
+my ($local_hostname) = gethostbyaddr($address, AF_INET);
+
+my $request;
+
+while (<>) {
+  chomp;
+  $request .= $_;
+  last if (m!</prim>!);
+}
+
+$request =~ s/<.xml.*\?>//;
+$request =~ s/<prim>//;
+$request =~ s/<.prim>//;
+my $command = $request;
+$command =~ s/^<//;
+$command =~ s/\s+.*//;
+
+my $name = $request;
+$name =~ s/.*name=['"]//;
+$name =~ s/['"].*//;
+
+if ($command eq 'lookup') {
+  verify_access($remote_hostname, $name);
+  local_lookup($name, $local_hostname);  # returns only when it fails
+  if ($remote_hostname eq $local_hostname) {  # go to our friends
+    remote_lookup($name);
+    send_error("I couldn't find $name (and I contacted friends)");
+  }
+  else {  # send remote caller our list of friends
+    send_friends($name);
+  }
+}
+else {
+  send_error("I don't know how to $command");
+}
+
+close LOG if $logging;
+
+sub remote_lookup {
+  my $name = shift;
+  my %friends_to_visit;
+  my $we_visited_someone = 1;
+
+  unless (open FRIENDS, "/etc/primd.friends") {
+    send_error("I can't find $name and I have no friends.");
+    return;
+  }
+
+  while (<FRIENDS>) {
+    next if (/^#/);
+    next if (/^\s*$/);
+    chomp;
+    $friends_to_visit{$_}++;
+  }
+  close FRIENDS;
+
+  while ($we_visited_someone) {
+    $we_visited_someone = 0;
+
+    foreach my $friend (keys %friends_to_visit) {
+      next unless ($friends_to_visit{$friend} == 1);
+
+      $friends_to_visit{$friend}++;
+
+      log_this("checked with $friend for $name");
+
+      my @more_friends = visit_friend($name, $friend);
+      
+      $we_visited_someone++;
+
+      foreach (@more_friends) { $friends_to_visit{$_}++; }
+    }
+  }
+
+}
+
+# returns a list of friends if the other server provides one
+# gives the caller the server and port if it can (does not return)
+# returns an empty list if the server fails and has no friends
+sub visit_friend {
+  my $name   = shift;
+  my $server = shift;
+
+  my $request = "<?xml version='1.0' ?><prim><lookup name='$name'/></prim>\n";
+  my $remote = IO::Socket::INET->new (
+     Proto    => 'tcp',
+     PeerAddr => "$server:5368",
+  ) or return ();
+
+  $remote->autoflush(1);
+
+  print $remote $request;
+  shutdown $remote, 1;   # done writing
+
+  my $reply;
+  while (<$remote>) {
+    chomp;
+    $reply .= $_;
+  }
+
+  if ($reply =~ /<error>/) {
+    return ();
+  }
+  elsif ($reply =~ /<port>/) {
+    print "$reply\n";
+    exit;
+  }
+  elsif ($reply =~ /<friends>/) {
+    s/.*<friends>\s*<friend>//;
+    s/<.friend>\s*<.friends>.*//;
+    return split /<.friend><friend>/;
+  }
+  else {
+    return ();
+  }
+
+}
+
+sub send_friends {
+  my $name = shift;
+  unless (open FRIENDS, "/etc/primd.friends") {
+    send_error("I can't find $name and I have no friends.");
+    return;
+  }
+
+  print "$xmlheader<friends>";
+  while (<FRIENDS>) {
+    next if (/^#/);
+    next if (/^\s*$/);
+    chomp;
+    print "<friend>$_</friend>";
+  }
+  print "</friends></prim>\n";
+
+  close FRIENDS;
+}
+
+sub local_lookup {
+  my $name = shift;
+  my $local_hostname = shift;
+  my $port;
+
+  unless (open PRIMFILE, "/tmp/$name.prim") {
+    log_this("Couldn't read $name.prim\n");
+    return;
+  }
+ 
+  while (<PRIMFILE>) {
+    if (/^\s*port\s+(\d+)/) {
+      $port = $1;
+      last;
+    }
+  }
+ 
+  close PRIMFILE;
+ 
+  if ($port) {
+    print "$xmlheader<host>$local_hostname</host><port>$port</port></prim>\n";
+    exit;
+  }
+  else {
+    log_this("$name not available on this host.");
+  }
+}
+
+sub verify_access {
+  my $hostname = shift;
+  my $service  = shift;
+  my $active   = "";     # empty till we see our service, then allow or deny
+
+  open ACCESS, "/etc/primd.access" or my_die("Can't read /etc/primd.access");
+
+  while (<ACCESS>) {
+    next if (/^\s*$/);  # skip blank lines
+    next if (/^#/);     # skip comments which start the line with a pound sign
+    chomp;
+    if (/\s*ALL\s+all/) {
+      close ACCESS;
+      log_this("Allowing $hostname to reach $service due to ALL allow.");
+      return;
+    }
+    if (s/^h(ost)?://) {
+      next unless $active;
+      if ($_ eq $hostname) {
+        if ($active eq 'allow') {
+          log_this("Allowing $_ to reach $service due to specific allow.");
+          close ACCESS;
+          return;
+        }
+        else {
+          close ACCESS;
+          my_die("Denying $_ access to $service due to specific deny.");
+        }
+      }
+      elsif ($_ eq 'ALL') {
+        if ($active eq 'allow') {
+          log_this("Allowing $_ to reach $service due to allow all hosts.");
+          close ACCESS;
+          return;
+        }
+        else {
+          close ACCESS;
+          my_die("Denying $_ access to $service due to deny all hosts.");
+        }
+      }
+    }
+    else {  # There's no colon on this line, must start a new service.
+      my ($candidate_service, $allow_deny) = split;
+      if ($candidate_service eq $service) {
+        $active = $allow_deny;
+      }
+      elsif ($active) { # our rule is finished
+        last;
+      }
+    }
+  }
+  close ACCESS;
+  
+  if ($active eq 'deny') {
+    log_this("Allowing $hostname to reach $service, host is not denied.");
+  }
+  elsif ($active eq 'allow') {
+    my_die("Denying $hostname access to $service, host is not allowed.");
+  }
+  else {
+    my_die("Denying $hostname access to $service, bad instruction '$active'.");
+  }
+
+}
+
+sub log_this {
+  my $message = shift;
+
+  return unless ($logging);
+
+  print LOG scalar(localtime()) . " $message\n";
+}
+
+sub my_die {
+  my $message = shift;
+
+  if ($logging) {
+    print LOG scalar(localtime()) . " $message\n";
+    close LOG;
+  }
+  exit;
+}
+
+sub send_error {
+  my $message = shift;
+
+  print "$xmlheader<error>$message</error></prim>\n";
+}

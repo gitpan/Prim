@@ -1,0 +1,13 @@
+#!/usr/bin/perl -T
+use strict; use lib ".";
+use PrimObject;
+
+my $factory = PrimObject->Prim_constructor('multiplier.mycompany.com');
+my $multiplier = $factory->new_multiplier_object(5);
+
+my @numbers = (2, 6, 8);
+
+foreach my $number (@numbers) {
+  print $multiplier->multiply($number) . " ";  # prints 10 30 40
+}
+print "\n";

@@ -1,0 +1,137 @@
+#!/usr/bin/perl
+use strict;
+
+=head1 NAME
+
+objectclient - an example OO client for Perl Remote Invocation of Methods (prim)
+
+=head1 SYNOPSIS
+
+Here's the code (for those using perldoc).  Comments are interspersed.
+
+  use PrimObject;
+
+This is the object oriented client helper class.  For contrast see Prim
+which is similar but supports only remote function calls, not remote objects.
+
+  my (@response, $roll, @rolls);
+
+  my $usage = "$0 [server]\n";
+
+  my $hello_obj = PrimObject->Prim_constructor(
+     'statserver.somecompany.com', shift
+  );
+
+The first step is to ask the PrimObject to find your server and connect to
+it.  Until the PrimObject goes out of scope, you will have an open TCP
+connection to your server.  The arguments are service name and host computer.
+The host has optional.  If you specify one, the primd service on that
+host is contaced on port 5368 with the name of the service you want.
+If it fails to deliver a port, or you omit the server, you local host
+is searched (by attempting to read the /tmp/servicename.prim file).
+In the future omitting the host name will invoke a discovery scheme
+to find the service for you even if it moves (or if there are many hosts
+willing to serve you).  The service name is something like
+rateserver.us.company.com where the ending should be your company's
+registered internet domain name (like the Java convention for package names).
+
+  my $die       = $hello_obj->new_die(20);    # server makes a Die object
+
+Once you have the PrimObject, you can call any functions the server makes
+public.  For actual objects, the server must provide a wrapper for the
+object's constructor.  This one is called new_die.  If the Die.pm was
+local you would say my $die = Die->new(20);
+
+After the server creates your object, it returns a key which allows you to
+access it.  Your PrimObject ($hello_obj in this case) actually gives you a
+new PrimObject using the same connection.  When you use the new PrimObject
+your object key will be sent to the server so that it can use the object
+it created in the wrapped constructor.
+
+  for (my $i = 0; $i < 10; $i++) {
+    $roll = $die->roll();                  # method of the Die class
+
+The object looks to this script as if it were local.  You can call anything
+on the object which you could call on it if it were local to your perl
+interpreter.
+
+    print "rolled: $roll\n";
+    push @rolls, $roll;
+  }
+
+  @response  = $hello_obj->max(@rolls);    # server function
+  print "@response\n";
+
+  @response  = $hello_obj->mode(@rolls);   # server function
+  print "@response\n";
+
+Even if your server is providing some object constructors, it can still
+provide regular functions (which Java people would call static methods).
+These do not need an instance object on the server.  In this client script
+we reach these through our PrimObject.
+
+  print $die->value() . "\n";              # method of the Die class
+
+Again, we can call any supported method of the objects which the server
+has instantiated for us.
+
+  eval {$roll = $die->doubles()};          # no such method
+
+  print "caught an error: $@\n" if $@;
+
+However, if the method you want does not exist, you will receive a fatal
+error.  If you don't want to die, you must catch this with an eval as shown.
+To see the error check $@ and print it if it's defined.  (This is just
+like trapping any other fatal Perl error with an eval.)
+
+  my %docs = $hello_obj->send_documentation("new_die", "max");
+
+  foreach (keys %docs) {
+    print "$_: $docs{$_}\n";
+  }
+
+If you want to know what server methods do, use send_documentation.
+If you list methods, you hear only about those.  If you don't list
+methods, you hear about all the methods.
+
+Currently you receive an actual hash (not a reference) with the method
+names as keys and the server provided documentation as values.
+
+=head1 DESCRIPTION
+
+=cut
+
+use PrimObject;
+
+my (@response, $roll, @rolls);
+
+my $usage = "$0 [server]\n";
+
+my $hello_obj = PrimObject->Prim_constructor(
+   'statserver.somecompany.com', shift
+);
+my $die       = $hello_obj->new_die(20);    # server makes a Die object
+
+for (my $i = 0; $i < 10; $i++) {
+  $roll = $die->roll();                  # method of the Die class
+  print "rolled: $roll\n";
+  push @rolls, $roll;
+}
+
+@response  = $hello_obj->max(@rolls);    # server function
+print "@response\n";
+
+@response  = $hello_obj->mode(@rolls);   # server function
+print "@response\n";
+
+print $die->value() . "\n";              # method of the Die class
+
+eval {$roll = $die->doubles()};          # no such method
+
+print "caught an error: $@\n" if $@;
+
+my %docs = $hello_obj->send_documentation("new_die", "max");
+
+foreach (keys %docs) {
+  print "$_: $docs{$_}\n";
+}

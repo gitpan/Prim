@@ -1,0 +1,77 @@
+=head1 NAME
+
+Prim Perl Remote Invocation of Methods (prim) is an enterprise Perl scheme
+
+=head2 GOALS
+
+If you are impatient to get started, look in the prim.pod file.  It has
+examples.  This file outlines the aim, purpose, scope, and current design.
+
+The first goal of prim is to allow client perl scripts to call supporting
+functions running in other perl interpreter sessions.  This is similar in
+spirit to what happens with Java's remote method invocation, except that all
+the functions called via prim are static in the Java sense (they don't rely
+on object instances).  Thus, I'm using the word function carefully here.
+
+The next step is to provide access to methods in a persistent remote object.
+Java can do this for single object instances through the Remote Method
+Invocation (RMI) protocol.  It allows for multiple objects to persist in
+a bean server which usually runs inside a web server.
+
+The second goal of prim is to provide access to persistent remote
+objects without the need for a complicated bean-like server.  Any server
+described under the first goal can provide such persistent prim perls.
+There is no need for a separate proprietary bean server (be it open or closed).
+
+There are two types of persistent objects.  They are created differently.
+First, there are objects that anyone can contact.  These are simply initialized
+by your script before you become a server, then the function callbacks
+have access to these objects.  (There may be a problem if you try to update
+the internal data of these objects in memory, since the callbacks are
+invoked by forked children of your process.  You could work around this problem
+by using the local disk).
+
+The second type of persistent objects belong to a particular client.  These
+seem to be far more useful.  The problem with Java bean servers is that
+they operate within the bean server framework which is modeled on (or even
+controlled by) the web server model.  In that model, all communications
+are request/response without state.  The only way to create the illusion of
+state is to use a cookie scheme.  The server sends an identifying key (often
+called a cookie) to the client.  The client sends the cookie with each
+subsequent request.  This allows the server to pretend to provide a
+connected communication session with a client.  But, it is only pretense.
+
+Prim avoids the problem of pretending to provide connections within the
+framework of a connectionless system.  It does this with the revolutionary
+idea of giving each client an actual connection (wonders never cease).
+You can think of this like an ftp or telnet session.  The persistence comes
+from two programs maintaining a continuous socket connection so long as
+they both shall live.
+
+This approach allows prim to provide access to persistent objects on
+a per client basis.  To break in to this scheme, you cannot simply spoof
+someone's cookie to gain access to these objects.  You must go the further
+step of spoofing packets in a connected TCP session.
+
+=head2 PROTOCOLS
+
+To achieve the goals we primarily need a set of protocols for communication
+between clients and servers.  After we know how they will communicate,
+it would be nice to have actual code to help us implement the protocols.
+That is what you will find in this distribution.  But, keep in mind that
+the code is currently weak in several areas (notably security and xml
+parsing).  Further the scheme is not complete (in particular I have not
+formulated the remote server discovery part of the scheme, send your
+suggestions).  The code works (at least for me), but it really only a
+sample to demonstrate the idea.
+
+If you want to see all of the available messages in the protocols, see
+the file called protocols in the distribution directory.  The prim protocols
+are phrased in xml.
+
+If you want to build clients and servers, but don't (yet) care about how
+they communicate look at the files called client and server.  You should
+be able to start the server, then run the client and see some results.
+Look at the code for a guide to making your own.
+
+=cut

@@ -1,0 +1,35 @@
+<!ELEMENT prim (command)>
+<!ELEMENT command (error
+                | lookup
+                | (host port)
+                | call_method
+                | return_from
+                | shutdown
+                | send_documentation
+                | documentation) >
+
+<!ELEMENT error                     (#PCDATA)                    >
+<!ELEMENT lookup                    EMPTY                        >
+<!ELEMENT host                      (#PCDATA)                    >
+<!ELEMENT port                      (#PCDATA)                    >
+
+<!ELEMENT call_method               (arg_list)                   >
+<!ELEMENT arg_list                  (arg+)                       >
+<!ELEMENT arg                       #PCDATA                      >
+
+<!ELEMENT return_from               (return_value|object_value)+ >
+<!ELEMENT return_value              #PCDATA                      >
+<!ELEMENT retrun_object             #PCDATA                      >
+
+<!ELEMENT shutdown                  EMPTY                        >
+
+<!ELEMENT send_documentation        EMPTY                        >
+<!ELEMENT documentation             (method, description)+       >
+
+<!ELEMENT method                    #PCDATA                      >
+<!ELEMENT description               #PCDATA                      >
+
+<!ATTLIST lookup name               CDATA #REQUIRED              >
+<!ATTLIST call_method name          CDATA #REQUIRED              >
+<!ATTLIST return_from name          CDATA #REQUIRED              >
+<!ATTLIST send_documentation name   CDATA #IMPLIED               >

@@ -1,0 +1,209 @@
+#!/usr/bin/perl -T
+use strict;
+
+use Socket;
+
+=head1 NAME
+
+primd - a Perl Remote Invocation of Methods inetd service finder
+
+=head1 SYNOPSIS
+
+Send the following on standard in from the command line, or to port 5368
+if primd is properly registered (smallclient does the later):
+
+  <?xml version='1.0' ?><prim><lookup name='$name'/></prim>
+
+You will receive a prim packet in return.  It will be either:
+
+  <?xml version='1.0' ?><prim><error>Message</error></prim>
+
+Or:
+
+  <?xml version="1.0" ?><prim><host>127.0.0.1</host><port>32415</port></prim>
+
+Currently primd always returns 127.0.0.1 for the host name.  The caller
+should know what host they contacted and use that host.  This should be
+fixed at some point.
+
+=head1 DESCRIPTION
+
+Bind primd to port 5368 with inetd (or its moral equivalent).  Currently,
+clients who supply your host name or ip will contact your primd asking for
+service ports.
+
+=head1 INSTALLATION
+
+To install primd, make an entry in /etc/services called prim with tcp port
+5368.  Do whatever else your inetd requires (make an entry in /etc/inetd.conf
+or a file in /etc/xinetd.d etc).  Copy the file sample_primd.access to
+/etc/primd.access
+Edit the access file to allow the hosts you like to have access.  If
+you're feeling brave, uncomment the line that reads # ALL allow
+If you don't have an /etc/primd.access no one will receive primd replies.
+
+=head1 LOG
+
+primd logs every access attempt, what happened to the client, and why in
+/tmp/primd.log
+
+=head1 AUTHOR
+
+Phil Crow, philcrow2000@yahoo.com
+
+=cut
+
+my $logging = 1;
+
+open  LOG, ">>/tmp/primd.log" or $logging = 0;
+my $fh = select LOG;
+$| = 1;
+select $fh;
+
+#  This is not sufficient to guarantee that the host is who he says he is.
+#  If he spoofs an ip that we resolve to a different host name than he
+#  can from we're breached.
+
+my $sockaddr = getpeername(STDIN);
+my ($port, $address) = sockaddr_in($sockaddr);
+my ($hostname) = gethostbyaddr($address, AF_INET);
+print LOG "port is $port address is $hostname\n";   # XXX
+
+my $request;
+
+while (<>) {
+  chomp;
+  $request .= $_;
+  last if (m!</prim>!);
+}
+
+$request =~ s/<.xml.*\?>//;
+$request =~ s/<prim>//;
+$request =~ s/<.prim>//;
+my $command = $request;
+$command =~ s/^<//;
+$command =~ s/\s+.*//;
+
+my $name = $request;
+$name =~ s/.*name=['"]//;
+$name =~ s/['"].*//;
+
+if ($command eq 'lookup') {
+  verify_access($hostname, $name);
+  lookup($name);
+}
+else {
+  print "<?xml version='1.0' ?>";
+  print "<prim><error>I don't know how to $command</error></prim>\n";
+}
+
+close LOG if $logging;
+
+sub lookup {
+  my $name = shift;
+  my $port;
+
+  open PRIMFILE, "/tmp/$name.prim"
+    or die "<?xml version='1.0' ?>"
+         . "<prim><error>Couldn't read /tmp/$name.prim</error></prim>\n";
+ 
+  while (<PRIMFILE>) {
+    if (/^\s*port\s+(\d+)/) {
+      $port = $1;
+      last;
+    }
+  }
+ 
+  close PRIMFILE;
+ 
+  print '<?xml version="1.0" ?>';
+  if ($port) {
+    print "<prim><host>127.0.0.1</host><port>$port</port></prim>\n";
+  }
+  else {
+    die "<prim><error>$name not available.</error></prim>\n";
+  }
+}
+
+sub verify_access {
+  my $hostname = shift;
+  my $service  = shift;
+  my $active   = "";     # empty till we see our service, then allow or deny
+
+  open ACCESS, "/etc/primd.access" or my_die("Can't read /etc/primd.access");
+
+  while (<ACCESS>) {
+    next if (/^\s*$/);  # skip blank lines
+    next if (/^#/);     # skip comments which start the line with a pound sign
+    chomp;
+    if (/\s*ALL\s+all/) {
+      close ACCESS;
+      log_this("Allowing $hostname to reach $service due to ALL allow.");
+      return;
+    }
+    if (s/^h(ost)?://) {
+      next unless $active;
+      if ($_ eq $hostname) {
+        if ($active eq 'allow') {
+          log_this("Allowing $_ to reach $service due to specific allow.");
+          close ACCESS;
+          return;
+        }
+        else {
+          close ACCESS;
+          my_die("Denying $_ access to $service due to specific deny.");
+        }
+      }
+      elsif ($_ eq 'ALL') {
+        if ($active eq 'allow') {
+          log_this("Allowing $_ to reach $service due to allow all hosts.");
+          close ACCESS;
+          return;
+        }
+        else {
+          close ACCESS;
+          my_die("Denying $_ access to $service due to deny all hosts.");
+        }
+      }
+    }
+    else {  # There's no colon on this line, must start a new service.
+      my ($candidate_service, $allow_deny) = split;
+      if ($candidate_service eq $service) {
+        $active = $allow_deny;
+      }
+      elsif ($active) { # our rule is finished
+        last;
+      }
+    }
+  }
+  close ACCESS;
+  
+  if ($active eq 'deny') {
+    log_this("Allowing $hostname to reach $service, host is not denied.");
+  }
+  elsif ($active eq 'allow') {
+    my_die("Denying $hostname access to $service, host is not allowed.");
+  }
+  else {
+    my_die("Denying $hostname access to $service, bad instruction '$active'.");
+  }
+
+}
+
+sub log_this {
+  my $message = shift;
+
+  return unless ($logging);
+
+  print LOG scalar(localtime()) . " $message\n";
+}
+
+sub my_die {
+  my $message = shift;
+
+  if ($logging) {
+    print LOG scalar(localtime()) . " $message\n";
+    close LOG;
+  }
+  exit;
+}

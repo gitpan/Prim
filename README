@@ -1,0 +1,40 @@
+Prim is a system for remote function and object access in Perl.  It's
+based on xml packets sent over tcp sockets.  You need IO::Socket from
+the standard distribution to use it.
+
+Currently there is no make, make test, make install sequence since this
+is not really ready for prime time.  Send in your input!
+
+To use simply gunzip and untar.  Then run one of the servers:
+trivialserver
+trivialobjectserver
+server
+objectserver
+After the server is up, run the corresponding client:
+trivialclient
+trivialobjectclient
+client
+objectclient
+
+The trivial pair is documented in prim.pod.  The others are internally
+documented (with POD inside the scripts).
+
+This version has been successfully tested on Red Hat Linux 7.1 and on
+HP-UX 11.0 using Perl 5.6.1 and 5.005_03 respectively.
+
+The remote part of the scheme is a bit week at present, but it's mainly
+a problem of finding the service, not of the services themselves.
+If you're feeling adventerous and want to play with this, register primd 
+with your inetd on port 5368 under the name prim.  Do this on one machine.
+Start the server script on that machine.  On another machine run
+the corresponding client giving the serving machines name or ip address
+as the only argument.
+
+Send me feedback: if you like it, if you hate it, if you want to fix it,
+if you couldn't install it.  Send that feedback to
+
+  philcrow2000@yahoo.com
+
+All files in this directory are copyright 2002, Phil Crow.  All rights
+reserved.  These files and programs may be distributed under the same
+terms as Perl itself.

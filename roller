@@ -1,0 +1,26 @@
+#!/usr/bin/perl
+use strict;
+
+use Die;
+
+my $die = Die->new(12);
+
+my $roll = $die->roll();
+
+print "$roll\n";
+
+print $die->value() . "\n";
+
+eval {$roll = death_sub()};
+
+print "here is the trapped error: $@\n";
+
+eval {$roll = $die->doubles()};
+
+print "here is the trapped error: $@\n";
+
+print "doubles check $roll\n";
+
+sub death_sub {
+  die "this sub dies\n";
+}

@@ -1,0 +1,66 @@
+
+This distribution contains a sample implementation of a new scheme for
+interaction between perl interpreters.  The scheme is called Perl Remote
+Invocation of Methods (prim).
+
+The files in this directory are:
+
+Command line scripts:
+
+client       - a sample non-object oriented client
+server       - a sample server for client to talk to
+objectclient - a sample OO client
+objectserver - a sample server for objectclient to talk to
+
+Other examples from the prim.pod file (prim.pod is a good place to start
+reading):
+
+trivialclient
+trivialserver
+trivialobjectclient
+trivialobjectserver
+Multiplier.pm
+
+A simple example service for inetd or xinetd:
+primd - a sample inetd service which attempts to discover the host and port
+        of the service you want. (Currently it only reads the local disk.
+        If you have a better solution, please send it to me.)
+sample_primd.access
+      - a sample of primd's access control file.  If you are registering
+        primd with inetd or xinetd, place this file (or one like it) in
+        /etc/primd.access.  Each time primd starts, it reads this file to
+        decide whether the requester should receive the port of the
+        requested service.
+Note that you don't have to register primd in order to experiment with
+the samples.  When primd does not respond with a port number, the current
+scheme reads the /tmp directory looking for services on the local box.
+
+Modules that aid client and server authors:
+Prim.pm       - module non-OO clients use to reach non-OO servers
+PrimClient.pm - module Prim.pm uses for actual socket communications
+PrimServer.pm - module non-OO server scripts use
+
+PrimObject.pm       - module OO clients use to reach OO servers
+PrimObjectClient.pm - module PrimObject.pm uses for socket communications
+PrimObjectServer.pm - module OO servers use
+
+Other perl scripts:
+Die.pm      - an example of an object oriented module that is exposed by
+              objectserver.  The module was not changed to make it usable
+              remotely.
+smallclient - a script which hits primd (on port 5368) and prints the result
+roller      - a non-prim driver for the Die class (left over from debugging)
+
+Documentation:
+errors    - list of the error messages which prim xml packets might generate
+prim.dtd  - a dtd describing all valid prim transactions
+primgoals.pod
+          - an explanation of what prim does and pointers to other files
+protocols - a list of all the valid xml transactions currently part of prim
+manifest.annotated
+          - this file
+TODO      - list of things I would like to add to prim (feel free to make
+            suggestions for additions to this list or to implement some which
+            are in it).
+prim.pod  - announces prim and provides a couple of complete but trivial
+            examples

@@ -1,0 +1,154 @@
+#!/usr/bin/perl -T
+use strict;
+
+use lib ".";
+
+=head1 NAME
+
+objectserver - a sample server for Perl Remote Invocation of Methods (prim)
+
+=head1 SYNOPSIS
+
+Here is the code (for those using perldoc).  Comments are interspersed.
+
+  use PrimObjectServer;
+
+If you want to become a prim object server you can follow the plan here.
+First, use the PrimObjectServer.  Contrast this with the prim function only
+server called server which uses PrimServer.
+
+  use Die;
+
+This is an object oriented module which makes and rolls dice (the kind used
+for games).  See the file Die.pm in the distribution for the code.
+
+  PrimObjectServer->new('statserver.somecompany.com',
+    'statserver.acl',
+    max  => { CODE => \&max,
+              DOC  => 'returns the maximum of its arguments',
+            },
+    mode => { CODE => \&mode_finder,
+              DOC  => 'returns a list of the modal values in the arg list',
+            },
+    new_die => { CODE => \&new_die,
+                 DOC  => "returns a Die object",
+               }
+  );
+
+When you are ready to become a server, call the PrimObjectServer constructor.
+Tell it the name you want clients to call you.  Dots will help distinguish
+you from other similar services which might want to use the same name.
+Further, making a hierarchy in the name will aid lookup service development.
+My suggestion is to start with a meaningful name for the server, add
+internal categories, and end with your company's registered domain name.
+For example we might have something called
+reservations.africa.company.com or reservations.us.company.com
+
+After the name, provide an API hash.  The keys for the hash are the exposed
+name of your externally available functions (whose names may differ from the
+subroutine names).  The values are themselves hashes.  Currently the keys
+are CODE and DOC.  CODE's value is valid code reference (as shown or inline).
+DOC's value is a string telling what the function does.  Caller's can obtain
+this while you are running so they can see how to use you.
+
+  sub new_die {
+    return Die->new(shift);
+  }
+
+To provide access to an object, simply wrap the constructor with a function
+you reveal in your API hash.  PrimObjectServer will notice that you are
+returning a blessed reference and handle all subsequent calls on the object
+for you.  Note that your object must be security aware since it is now
+fully exposed.  If it does too much, you may have to make a new class
+which wraps the safe parts of the existing class.  Yet, one of the great
+joys for me is that I didn't modify the Die.pm class at all to use it in
+this example.  It just works.
+
+  sub summer_sub {
+    my $x = 0;
+    foreach (@_) { $x += $_; }
+    return $x;
+  }
+
+You may have functions which are not exposed.  If they aren't in the API
+hash (or supported objects you return), the client can't see them.  If you
+need internal functions, code them, but don't expose them in the API hash.
+
+  sub max {
+    my $max = shift;
+    foreach (@_) {
+      if ($max < $_) {
+        $max = $_;
+      }
+    }
+    return $max;
+  }
+
+  sub mode_finder {
+    my %frequency;
+    my $mode;
+    my @modes;
+    foreach (@_) {
+      $frequency{$_}++;
+      $mode = $frequency{$_} if ($mode < $frequency{$_});
+    }
+
+    foreach (keys %frequency) { push @modes, $_ if ($frequency{$_} == $mode); }
+    return @modes;
+  }
+
+Regular functions can do whatever they want.  Expect the caller to provide
+the usual quality of arguments (read this as: do substantial error checking).
+Return whatever makes sense.
+
+=cut
+
+use PrimObjectServer;
+use Die;
+
+PrimObjectServer->new(
+  'statserver.somecompany.com',
+  'statserver.acl',
+  max  => { CODE => \&max,
+            DOC  => 'returns the maximum of its arguments',
+          },
+  mode => { CODE => \&mode_finder,
+            DOC  => 'returns a list of the modal values in the arg list',
+          },
+  new_die => { CODE => \&new_die,
+               DOC  => "returns a Die object",
+             }
+);
+
+sub new_die {
+  return Die->new(shift);
+}
+
+sub summer_sub {
+  my $x = 0;
+  foreach (@_) { $x += $_; }
+  return $x;
+}
+
+sub max {
+  my $max = shift;
+  foreach (@_) {
+    if ($max < $_) {
+      $max = $_;
+    }
+  }
+  return $max;
+}
+
+sub mode_finder {
+  my %frequency;
+  my $mode;
+  my @modes;
+  foreach (@_) {
+    $frequency{$_}++;
+    $mode = $frequency{$_} if ($mode < $frequency{$_});
+  }
+
+  foreach (keys %frequency) { push @modes, $_ if ($frequency{$_} == $mode); }
+  return @modes;
+}

@@ -1,0 +1,40 @@
+#!/usr/bin/perl
+use strict;
+
+use IO::Socket;
+
+call(shift, shift);
+
+sub call {
+  my $server = shift;
+  my $name = shift;
+
+# Hail the server.
+
+  my $remote = IO::Socket::INET->new (
+      Proto    => 'tcp',
+      PeerAddr => $server,  # 'localhost',
+      PeerPort => 5368,
+  ) or die "Couldn't connect to server: $!\n";
+
+  $remote->autoflush(1);
+
+# Send the request.
+
+  print $remote "<?xml version='1.0'?><prim><lookup name='$name'/></prim>\n";
+  print "<?xml version='1.0'?><prim><lookup name='$name'/></prim>\n";
+
+  # Normally a call to shutdown would be in order here, but the server
+  # looks for the </call> as a sentinal value.
+  shutdown $remote, 1;
+
+# Receive the results, package them, and return.
+
+  my @received;
+  while (<$remote>) {
+    print;
+  }
+}
+
+1;
+

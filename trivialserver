@@ -1,0 +1,20 @@
+#!/usr/bin/perl -T
+use strict;
+
+use lib ".";
+use PrimServer;
+
+PrimServer->new(
+  'add.mycompany.com',
+  undef,
+  add => { CODE => \&add_sub,
+           DOC  => 'takes a list of numbers, returns their sum'
+         },
+);
+
+sub add_sub {
+  my $result = 0;
+  foreach my $arg (@_) { $result += $arg; }
+  return $result;
+}
+

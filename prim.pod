@@ -1,0 +1,353 @@
+=head1 NAME
+
+Prim - Perl Remote Invocation of Methods (RMI and EJB's for Perl, sort of)
+
+=head1 SUMMARY OF PURPOSE
+
+Prim is a set of xml based protocols which allow you to call perl functions
+and methods inside a server perl interpreter from a client perl interpreter.
+The functions and methods look as if they are running in the client.
+Helper modules enable client and server authors to quickly implement their
+code in the scheme.
+
+=head1 EXAMPLES
+
+=head2 First example
+
+Suppose we want someone else to add for us (not practical I know).  To
+run this, start trivialserver in one window and trivialclient in another.
+
+This does not require an object.  We pass a list of items, the total comes
+back.
+
+Client (available in trivialclient):
+  #!/usr/bin/perl -T
+  use strict; use lib ".";
+  use Prim;
+  
+  my $adder = Prim->Prim_constructor('add.mycompany.com');
+  my @numbers = (2, 4, 7);
+   
+  my $result = $adder->add(@numbers);  # Prim passes this call to server
+    
+  print "$result\n";  # prints 13
+
+This contacts a server registered under the name add.mycompany.com.
+Then it calls the add method in that server as if it were a method of
+the Prim object.
+
+Server (available in trivialserver):
+  #!/usr/bin/perl -T
+  use strict; use lib ".";
+  use PrimServer;
+  
+  PrimServer->new(
+    'add.mycompany.com',   # pick a name for the server
+    undef,                 # if you want access controls say so here (see below)
+    add => { CODE => \&add_sub,
+             DOC  => 'takes a list of numbers, returns their sum'
+           },
+  );
+                           
+  sub add_sub {
+    my $result = 0;
+    foreach my $arg (@_) { $result += $arg; }
+    return $result;
+  }
+
+In the server we pick a name and expose any methods we want to.
+In this example the whole server will be known as add.mycompany.com.
+Picking a name which means something and ends with your organization's
+registered internet domain name is a good idea.  Doing so prevents name
+conflicts and may eventually allow us to discover useful services
+by some kind of broadcast scheme.  Including categories between the
+meaningful name and your domain name could help you distinguish between
+similar servers in your organization.  You could have
+rates.africa.company.com and rates.us.company.com.
+
+See the section below called Access Controls for information about limiting
+which hosts can see your functions.  Here we chose undef as our access
+control which gives everyone access.
+
+add is the name the caller uses.  The value in the API hash for add has
+the standard two pieces: CODE and DOC.  CODE must be a valid code
+reference, it will be used as a callback.  You could inline the routine
+if you like.  DOC is a descriptive string which tells authorized users what
+your method does.
+
+All that remains is to include the functions themselves.
+
+=head2 Second example
+
+Suppose we need to use an object which is available on
+a remote server, but not on ours (its not installed, or it needs data on
+that other server).
+
+This requires an object.  We'll use a tiny class which does nearly nothing.
+The client and server are available as trivialobjectserver and
+trivialobjectclient.  The class exposed by the server is available in
+Multiplier.pm.
+
+The Class (available in Multiplier.pm):
+  use strict;
+
+  package Multiplier;
+
+  # Constructs a simple object which has one attribute.
+  sub new {
+    my $class = shift;
+    my $number = shift || 2;
+
+    my $self = {};
+    bless $self, $class;
+
+    $self->{NUMBER} = $number;
+    return $self;
+  }
+
+  # Takes a number, multiplies it by the object attribute, returns result.
+  sub multiply {
+    my $self          = shift;
+    my $second_number = shift;
+    return $self->{NUMBER} * $second_number;
+  }
+
+  1;
+
+The client (available in trivialobjectclient):
+  #!/usr/bin/perl -T
+  use strict; use lib ".";
+  use PrimObject;
+
+  my $factory = PrimObject->Prim_constructor('multiplier.mycompany.com');
+  my $multiplier = $factory->new_multiplier_object(5);
+
+  my @numbers = (2, 6, 8);
+
+  foreach my $number (@numbers) {
+    print $multiplier->multiply($number) . " ";  # prints 10 30 40
+  }
+  print "\n";
+
+Except that it uses PrimObject instead of Prim, this client begins just
+like the function only client in the first example.  Then it calls the
+new_multiplier_object method exposed by the server.  This returns an
+object reference (see Implementation Details below for information about
+how this happens).  After receiving the reference, use it just as if the
+object was local to your perl interpreter.
+
+The server (available in trivialserver):
+  #!/usr/bin/perl -T
+  use strict; use lib ".";
+  use PrimObjectServer;
+  use Multiplier;
+
+  PrimObjectServer->new(
+    'multiplier.mycompany.com',
+    undef,
+    new_multiplier_object => { CODE => \&make_multiplier,
+                               DOC  => 'returns a new multiplier object',
+                             },
+  );
+
+  sub make_multiplier {
+    return Multiplier->new(@_);
+  }
+
+This server is like the one in the first example, except that it uses
+PrimObjectServer instead of PrimServer and it uses an object oriented
+module, Multiplier.  To expose the class defined in Multiplier,
+simply expose a wrapper function to its constructor.
+
+Unlike some other parts of these examples, this one is all you'll ever
+need.  Once you return the Multiplier object, the client calls
+methods on it directly.  You don't have to expose the other methods,
+only the constructor.  If everything goes well on the network, even
+the DESTROY calls will be handled.
+
+For additional examples see the following pairs
+
+  server client
+  objectserver objectclient
+
+These include internal POD documentation.
+
+=head1 METHODOLOGY
+
+The Perl Remote Invocation of Methods (prim) protocols look strangely
+like xml.  See the files protocols and prim.dtd in the distribution for
+specific information.
+
+Each prim xml packet is sent via a socket.  There are two server types:
+function only and object capable.  The first (shown in the first example
+above) uses a server which works on a request-response-terminate basis.
+When you make a connection, the server forks a child to handle your request.
+You send the request (usually to run a function).  The server sends back the
+response and the child handling the connection exits.  If you want to make
+another request, the process repeats (the server forks a child...).  Servers
+of this type use PrimServer.pm.  The examples in the distribution are called
+server and trivialserver (the later is shown above).  Their clients are called
+client (cute remark about the name omitted) and trivialclient (the later is
+shown above).  To use the example, start the server in one window, leave it
+running and try the client from another window.
+
+Object capable servers work on a connected session basis.  When you
+make a connection, a child is forked to talk to you on an on-going basis.
+You send your request.  The server child replies with the response but
+does not terminate.  This allows that child to manage your persistent
+objects.  It also provides some additional security over what a web
+system would.  It is not enough to have your cookie to steal access
+to your object.  To steal, you need to participate in the TCP connection.
+This is not impossible by any means, but it is safer than a mere cookie.
+When you make another request, you are talking to the same server child
+on the same connected TCP socket.  Object capable servers use
+PrimObjectServer.pm.  The example in the distribution is called
+objectserver whose client is called objectclient.
+
+Clients which want to contact a function server (type 1) use Prim.pm,
+those that want to contact object servers (type 2) use PrimObject.pm.
+
+=head1 IMPLEMENTATION DETAILS
+
+So what are the mysteries of prim?  Mostly they are just uses of standard
+perl magic.  This section walks through a single transaction for both
+the function only server and the object server.
+
+=head2 Functions Only
+
+When the server starts, it defines callback function and passes them to
+the PrimServer constructor in the API hash.  The constructor does not
+return.  Instead it binds a listening socket to an ephemeral port,
+records the port number in /tmp/name.domain.prim (all such files end with
+prim).  Then it goes into an accept connections loop.  This waits for
+a client to make a request.
+
+The client begins by constructing a Prim object which in turn makes a
+PrimClient object.  Prim determines the port number of the service by
+contacting the primd xinetd service (if that fails it tries to read
+/tmp/name.domain.prim).  The Prim object is returned to the client.
+The client calls a method on the prim object.  Since the method is
+not defined in Prim it falls into Prim's AUTOLOAD function.  (Servers are
+not allowed to use Prim_constructor or _Prim_discover as method names,
+since these are the actual methods of Prim.)  AUTOLOAD extracts the
+function name and calls PrimClient->call along with the arguments
+the client supplied.  PrimClient packages the method call in prim xml,
+creates a socket connection to the server, and sends the packet.
+
+PrimServer receives the prim request, parses the xml (poorly) to
+extract the function name and arguments.  It checks the access controls
+to see if the sending host is denied the right to use the requested
+function.  Then it checks to see if there is such a function.  If these
+tests pass, the function is called.  If it dies, or the tests fail
+an error packet is returned.  Otherwise, the results are packaged
+in xml and sent back via the socket to the client.  The child process
+in the server exits (closing the socket).
+
+PrimClient has been waiting for the packet.  If it is an error packet,
+PrimClient dies with the text of the error.  Otherwise the packet
+is returned to Prim's AUTOLOAD where the it is parsed.  The return
+values are recovered, and sent back to the caller.
+
+=head2 Objects in Transit
+
+The basic plan is the same for the object server as for the non-object
+server.  Here are the differences.  The structure of the server and
+the nature of its connections are the most striking difference.  Instead
+of having a new child for each function call, a single child is spawned
+for each client program.  So long as the client's PrimObject is
+not destroyed, the connection to the server is maintained.  Only when
+the client instructs the server, does the child exit.
+
+In addition to using a continuous connection, some transactions
+differ from the function only approach.  Here are the sequences of
+the two new transactions.
+
+=head2 Calling the wrapped constructor
+
+The client's packet requests a call to a wrapped constructor.  Up until
+the callback returns, nothing is different from a regular call.  When that
+constructor returns its reference, the PrimObjectServer notices.  It does
+two special things.  First, it stores the object in a hash of the client's
+objects.  Second, it puts a key to the object into the return xml packet
+marked as a return_object instead of as a return_value.
+
+When PrimObject sees a return_object it does not return the key to the
+object.  Rather it makes a new PrimObject which uses the same connection
+as the original.  In that object is sets an attribute to the object key
+the server sent.  (This is unlikely to be thread safe.)
+
+=head2 Calling methods on the remote object
+
+When the client calls a method on a PrimObject with a valid object attribute,
+PrimObject's AUTOLOAD notices.  It does only one special thing.  It places
+the object key as the first argument in the remote call (similar to what
+perl does normally when we use -> to call a method, but here it is only a
+key to the object which is inserted not an blessed reference).
+
+When the server sees a valid object key as the first argument in a method
+call, it does two things.  It looks up the object in its hash and replaces
+the first argument supplied by the client (which was only the key) with
+the actual blessed reference.  It then calls the requested method and
+the object is none the wiser.  So, you don't have to do anything special
+to the class in order to expose it through a PrimObjectServer except
+wrapping the constructor with prim exposed function.
+
+And just what key do we use, the string representation of the reference.
+It really says in the server $self->{OBJECTS}{"$_"} = $_;
+
+=head1 A DISCOVERY SERVER
+
+There is currently a simplistic inetd server which attempts to find
+servers for you.  Unfortunately, it only looks on the current box and
+only by checking for /tmp/name.prim files.  This is meant as an example
+of where to put a server.  This service is called primd (see the next
+section on Access Controls for information on how to control who
+gets service from primd).  If someone from another box contacts your
+primd (and the ACL validates) they will receive the port number of
+the named service, if it is running.
+
+=head1 ACCESS CONTROLS
+
+There is a primitive access control mechanism.  It has two parts.  First,
+primd checks /etc/primd.access to see which hosts can receive information
+about which services.  See the file sample_primd.access for an explanation
+of what primd does.
+
+Second, PrimSerer and PrimObjectServer use a similar scheme to limit
+which hosts can run methods.  PrimServer checks each connection against
+the acl supplied to its constructor.  It will deny those who don't have
+permission.  This is done at either the server level or the method level.
+PrimServer reads the acl file for each connection.  This allows for on
+the fly configuration without halting the server.  PrimObjectServer
+is similar, but reads the acl only once for each client (since they
+stay connected).  If an object client is already in, you have to stop
+the server or the client to remove or add access rights.  I want to
+include signed requests at some point in the future.  If you know how
+to do that, help me out.  To see a sample of the current scheme look
+in statserver.acl.
+
+=head1 FINE PRINT
+
+There is not much security.
+
+The current implementation doesn't really cross from one host to another.
+
+Discovery of servers is limited to local disk reads.
+
+There are no timeouts yet.  If a client dies the server will likely have
+one child permanently blocked waiting on the dead client.  If the server dies,
+the client will block when it next tries to communicate with it.  I hope
+to correct this soon.
+
+=head1 CONTACT
+
+Let me know what you think of the idea and the implementation.  Especially
+let me know if you have any problems or suggestions.  Do so via email
+to philcrow2000@yahoo.com.
+
+=head1 COPYRIGHT
+
+All programs and descriptions in this distribution are copyright
+Phil Crow 2002.  All rights are reserved.  They may be redistributed under
+the same terms as Perl itself.
+

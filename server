@@ -1,0 +1,156 @@
+#!/usr/bin/perl -T
+use strict;
+
+use lib ".";
+
+=head1 NAME
+
+server - a sample server for Perl Remote Invocation of Methods (prim)
+
+=head1 SYNOPSIS
+
+Here is the code from this script with comments interspersed (for those using
+perldoc):
+
+  use PrimServer;
+
+This object oriented module will turn your script into a prim server.  See
+the constructor call below.
+
+  sub summer_sub {
+    my $x = 0;
+    foreach (@_) { $x += $_; }
+    return $x;
+  }
+
+You can include any functions you want in your script.  Only the ones you
+want will be exposed to callers.  This one will not be available outside
+of the script.  We could call it from exposed functions.  So in the Java
+sense this function is private.
+
+  sub max {
+    my $max = shift;
+    foreach (@_) {
+      if ($max < $_) {
+        $max = $_;
+      }
+    }
+    return $max;
+  }
+
+This function will be exposed.  There is nothing special about it until
+it appears in the API hash in the constructor call below.
+
+  my $mode_finder_doc = <<EOJ;
+  Takes any list of strings or numbers.
+  Returns the elements which appear most frequently in the input list
+  EOJ
+
+  sub mode_finder {
+    my %frequency;
+    my $mode;
+    my @modes;
+    foreach (@_) {
+      $frequency{$_}++;
+      $mode = $frequency{$_} if ($mode < $frequency{$_});
+    }
+
+    foreach (keys %frequency) { push @modes, $_ if ($frequency{$_} == $mode); }
+    return @modes;
+  }
+
+mode_finder has a multiline documentation string defined for it.  You never
+have to do this, but you might want to.  The other option is to wait and
+put the string directly into the constructor call.
+
+  PrimServer->new('statserver.somecompany.com',
+              './statserver.acl',
+              max  => { CODE => \&max,
+                        DOC  => 'finds the maximum of its arguments'
+                      },
+              mode => { CODE => \&mode_finder,
+                        DOC  => $mode_finder_doc,
+                      },
+  );
+
+This function never returns.  When the user calls one of the exposed methods,
+the code reference is called back.  Note the structure of the arguments.
+
+First is the name.  The name should be unique.  Following the Java convention
+of ending it with your organization's registered domain name is a good idea.
+You might also include category information such as reservations.us.company.com
+and reservations.africa.company.com.
+
+Second is the name of an access control file.  See statserver.acl or
+sample_service.acl for examples and an explanation of these files.
+If you don't want access control, pass undef as the second argument.
+
+Third is the API hash.  It is keyed by the exposed name (which may differ
+from the internal name).  Its values are themselves hashes.  Currently two
+keys are available: CODE and DOC.  CODE's value must be a valid code
+reference (but it could be declared in line).  DOC's value is a string which
+will be returned to the caller when she requests documentation.  This enables
+callers to find out what your service provides while it is running without
+having access to the code.
+
+=head1 DESCRIPTION
+
+The above script registers a server called statserver.somecompany.com with a
+two functions known to clients as max and mode which are implemented by the
+max and mode_finder functions.  The function sum is not available to remote
+callers, but could be used by other functions in the script as a private
+function.
+
+Using dots in the service name is a good idea to avoid name conflicts.  Using
+the Java convention is probably a good idea.  Yet, internally you may
+divide your systems in other logical ways so that a server handling
+reservations might be called reservations.us.somecompany.com so that a
+corresponding server could be called reservations.europe.somecompany.com.
+
+=cut
+
+use PrimServer;
+
+sub summer_sub {
+  my $x = 0;
+  foreach (@_) { $x += $_; }
+  return $x;
+}
+
+sub max {
+  my $max = shift;
+  foreach (@_) {
+    if ($max < $_) {
+      $max = $_;
+    }
+  }
+  return $max;
+}
+
+my $mode_finder_doc = <<EOJ;
+Takes any list of strings or numbers.
+Returns the elements which appear most frequently in the input list
+EOJ
+
+sub mode_finder {
+  my %frequency;
+  my $mode;
+  my @modes;
+  foreach (@_) {
+    $frequency{$_}++;
+    $mode = $frequency{$_} if ($mode < $frequency{$_});
+  }
+
+  foreach (keys %frequency) { push @modes, $_ if ($frequency{$_} == $mode); }
+  return @modes;
+}
+
+PrimServer->new('statserver.somecompany.com',
+            './statserver.acl',
+            max  => { CODE => \&max,
+                      DOC  => 'finds the maximum of its arguments'
+                    },
+            mode => { CODE => \&mode_finder,
+                      DOC  => $mode_finder_doc,
+                    },
+);

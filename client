@@ -1,0 +1,108 @@
+#!/usr/bin/perl
+use strict;
+
+=head1 NAME
+
+client - an example client for Perl Remote Invocation of Methods (prim)
+
+=head1 SYNOPSIS
+
+Here is the code in this example script (for those using perldoc).
+
+  use Prim;
+
+This object oriented module provides access to a function only server
+(objects will not come to you if you use Prim, try PrimObject instead).
+
+  my $usage = "./client [server]\n";
+
+  my $hello_obj = Prim->Prim_constructor('statserver.somecompany.com', shift);
+
+To obtain access to your server call Prim_constructor.  The arguments
+are the service name and an optional host name.  If you include the host,
+Prim will attempt to contact the primd server on port 5368 on that host
+to obtain the port number.  If you omit the host, or primd on the host fails to
+deliver a port, the local host is searched by looking /tmp/name.prim.
+See the Prim.pm source file for more information on how the search is
+currently done.  See primd for how remote lookup requests are handled.
+
+  my @response;
+
+  @response  = $hello_obj->max(1, 8, 4);
+  print "@response\n";
+
+  @response  = $hello_obj->mode(1, 8, 8, 4, 2, 3, 4);
+  print "@response\n";
+
+Once you have a Prim object, you can call functions in the server by
+calling them on your Prim object.
+
+  eval ( '@response  = $hello_obj->sum(1, 8, 4);');
+  if ($@) { print "error: $@\n"; }
+  else    { print "@response\n"; }
+
+If you call a method which the server does not support, you will receive
+a fatal error.  You can trap this in the usual way with eval.
+
+  my %response = $hello_obj->send_documentation(qw(mode max));
+
+  foreach (keys %response) {
+    print "$_:\n" . $response{$_} . "\n";
+  }
+
+If you want documentation, call send_documentation on your Prim object.
+If you name functions, you will receive documentation about only the
+ones you name.  If you don't name any functions, you will receive
+documentation about all of them.
+
+=head1 DESCRIPTION
+
+The above script makes a Prim object by calling its funkily named constructor
+(the name is long since servers cannot use this name).  The arguments
+taken from the command line are the name of the prim service and optionally
+the name of the computer on which it runs (eventually discovery methods
+may allow you to omit this argument and still use the service on a remote
+computer).  The name can (and probably should) contain dots so that services
+with the same name can coexist.  For instance, if the above service has
+a short name of statserver, it might be called statserver.somecompany.com
+so that other greeters don't conflict with it.
+
+The server for this script is called server and is in this directory
+(if you haven't disturbed the distribution).  Looking in that file we
+see that the sum function is not exposed to callers.  Attempting to call
+it kills the caller.  To trap such errors, wrap your call in an eval as
+shown.
+
+Here is the output from running this script while the server is up:
+
+  8
+  8 4
+  error: 'sum' not supported for client.
+
+This says that the maximum number in the list is 8, the modes are 8 and 4
+and sum is not available.
+
+=cut
+
+use Prim;
+
+my $usage = "./client [server]\n";
+
+my $hello_obj = Prim->Prim_constructor('statserver.somecompany.com', shift);
+my @response;
+
+@response  = $hello_obj->max(1, 8, 4);
+print "@response\n";
+
+@response  = $hello_obj->mode(1, 8, 8, 4, 2, 3, 4);
+print "@response\n";
+
+eval ( '@response  = $hello_obj->sum(1, 8, 4);');
+if ($@) { print "error: $@\n"; }
+else    { print "@response\n"; }
+
+my %response = $hello_obj->send_documentation(qw(mode max));
+
+foreach (keys %response) {
+  print "$_:\n" . $response{$_} . "\n";
+}
